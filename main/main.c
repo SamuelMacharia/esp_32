@@ -90,7 +90,7 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
             ESP_LOGI(TAG, "Failed to connect to AP");
         }else if(event_base==IP_EVENT && event_id==IP_EVENT_STA_GOT_IP){
             ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-            ESP_LOGI(TAG, "Got IP", IPSTR, IP2STR(&event->ip_info.ip));
+            ESP_LOGI(TAG, "Got IP: %s", IPSTR, IP2STR(&event->ip_info.ip));
             num_of_retries = 0;
             xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         }
@@ -152,6 +152,8 @@ static esp_err_t init_wifi(){
     if (bits & WIFI_CONNECTED_BIT)
     {
         ESP_LOGI(TAG, "Connected to WiFi SSID:%s ", CONFIG_WIFI_SSID);
+        esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+        esp_wifi_set_max_tx_power(52);
         return ESP_OK;
     }else if(bits & WIFI_FAILED_BIT){
         ESP_LOGI(TAG, "Failed to connect to WiFi SSID:%s ", CONFIG_WIFI_SSID);
@@ -160,8 +162,6 @@ static esp_err_t init_wifi(){
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
         return ESP_FAIL;
     }
-    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
-    esp_wifi_set_max_tx_power(52);
     
     
 }
