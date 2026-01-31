@@ -293,5 +293,7 @@ void app_main(void)
     );
 
     xFrameQueue = xQueueCreate(FRAME_QUEUE_LEN, sizeof(camera_fb_t *));
+
+    vTaskStartScheduler();
     
 }
