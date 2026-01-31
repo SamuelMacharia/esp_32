@@ -15,24 +15,27 @@
 #include "esp_camera.h"
 #include "esp_wifi.h"
 #include "esp_timer.h"
+#include <esp_http_server.h>
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAILED_BIT BIT1
 
 #define MAXIMUM_RETRY_NUM 10
+#define FRAME_QUEUE_LEN 3
 
 #define CAMERA_MODEL_AI_THINKER
 
 
 static const char* TAG = "AI_THINKER";
 
-camera_fb_t *fb = NULL;
 
-
-TaskHandle_t handle_stream;
-TaskHandle_t handle_mqtt;
+TaskHandle_t xCaptureTaskHandle;
+TaskHandle_t xStreamingTaskHandle;
+TaskHandle_t xMqttTaskHandle;
 TaskHandle_t handle_detect_face;
 TaskHandle_t handle_face_recognition;
+
+QueueHandle_t xFrameQueue;
 
 static EventGroupHandle_t s_wifi_event_group;
 
@@ -166,6 +169,95 @@ static esp_err_t init_wifi(){
     
 }
 
+static void handle_capture(void* args){
+    camera_fb_t* fb = NULL;
+    
+    for(;;){
+       fb = esp_camera_fb_get();
+       if(!fb){
+        ESP_LOGE(TAG, "Camera Capture Failed");
+        
+        break;
+       }else{
+        if(xQueueSend(xFrameQueue, &fb, portMAX_DELAY) != pdPASS){
+            esp_camera_fb_return(fb);
+        }
+       }
+            
+       vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+static void handle_stream(void* args){
+    camera_fb_t* recieved_fb = NULL;
+    esp_err_t res = ESP_OK;
+
+    static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=frame";
+    static const char* _STREAM_BOUNDARY = "\r\n--frame\r\n";
+    static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
+    
+    for(;;){
+        if(xQueueReceive(xFrameQueue, &recieved_fb, portMAX_DELAY)==pdTRUE){
+            httpd_req_t* req = (httpd_req_t*)args;
+            res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
+            httpd_resp_set_hdr(req, "Cache-Control","no-cache");
+            httpd_resp_set_hdr(req, "Access-Control-Allow-Origin","");
+
+            if(res != ESP_OK){
+                ESP_LOGE(TAG, "Something happened %s", res);
+                break;
+            }
+
+            char header[64];
+            size_t hlen = snprintf(header, sizeof(header), _STREAM_PART, recieved_fb->len);
+            res= httpd_resp_send_chunk(req, _STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
+
+            if(res==ESP_OK){
+                httpd_resp_send_chunk(req, header, hlen);
+            }
+            if(res==ESP_OK){
+                httpd_resp_send_chunk(req, (const char*)recieved_fb->buf, recieved_fb->len);
+            }
+            esp_camera_fb_return(recieved_fb);
+            recieved_fb=NULL;
+            httpd_req_async_handler_complete(req);
+        }
+        
+        vTaskDelete(NULL);
+    }
+}
+
+esp_err_t start_stream_handler(httpd_req_t* req){
+    httpd_req_t *copy = NULL;
+
+    //create a persistent copy safe for other tasks
+    esp_err_t res = httpd_req_async_handler_begin(req, &copy);
+
+    if(res==ESP_OK){
+        xTaskCreatePinnedToCore(handle_stream, "handle_stream", 4096, (void*)copy, 3, &xStreamingTaskHandle, 0);
+    }
+    return res;
+}
+
+static void startWebServer(){
+    httpd_uri_t stream_uri={
+        .uri ="/stream",
+        .method = HTTP_GET,
+        .handler= start_stream_handler,
+        .user_ctx = NULL
+    };
+    httpd_handle_t stream_httpd = NULL;
+
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.server_port = 80;
+    config.recv_wait_timeout = 10;
+    config.send_wait_timeout = 10;
+
+    if(httpd_start(&stream_httpd, &config)==ESP_OK){
+        httpd_register_uri_handler(stream_httpd, &stream_uri);
+    }
+}
+
 void app_main(void)
 {
     
@@ -187,7 +279,19 @@ void app_main(void)
     }else{
         ESP_LOGE(TAG, "FAILED TO CONNECT TO %s", CONFIG_WIFI_SSID);
     }
+
+    startWebServer();
     
-    
+    xTaskCreatePinnedToCore(
+        handle_capture, //Task Function
+        "handle_capture", //Task Name
+        4096,  //Stack Size
+        NULL, //parameters
+        2, // Priority
+        &xCaptureTaskHandle, //Task Handle
+        1 // core
+    );
+
+    xFrameQueue = xQueueCreate(FRAME_QUEUE_LEN, sizeof(camera_fb_t *));
     
 }
