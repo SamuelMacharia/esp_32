@@ -19,6 +19,7 @@
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAILED_BIT BIT1
+#define STREAM_READY_BIT BIT2
 
 #define MAXIMUM_RETRY_NUM 10
 #define FRAME_QUEUE_LEN 3
@@ -31,6 +32,7 @@ static const char* TAG = "AI_THINKER";
 
 TaskHandle_t xCaptureTaskHandle;
 TaskHandle_t xStreamingTaskHandle;
+TaskHandle_t xWebServerHandle;
 TaskHandle_t xMqttTaskHandle;
 TaskHandle_t handle_detect_face;
 TaskHandle_t handle_face_recognition;
@@ -173,6 +175,13 @@ static void handle_capture(void* args){
     camera_fb_t* fb = NULL;
     
     for(;;){
+        xEventGroupWaitBits(
+            s_wifi_event_group,
+            STREAM_READY_BIT,
+            pdFALSE,
+            pdTRUE,
+            portMAX_DELAY
+        );
        fb = esp_camera_fb_get();
        if(!fb){
         ESP_LOGE(TAG, "Camera Capture Failed");
@@ -183,6 +192,8 @@ static void handle_capture(void* args){
             esp_camera_fb_return(fb);
         }
        }
+       UBaseType_t high_water_mark = uxTaskGetStackHighWaterMark(NULL);
+       ESP_LOGI(TAG, "Remaining Stack size %u words", (unsigned int)high_water_mark);
             
        vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -200,8 +211,7 @@ static void handle_stream(void* args){
         if(xQueueReceive(xFrameQueue, &recieved_fb, portMAX_DELAY)==pdTRUE){
             httpd_req_t* req = (httpd_req_t*)args;
             res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
-            httpd_resp_set_hdr(req, "Cache-Control","no-cache");
-            httpd_resp_set_hdr(req, "Access-Control-Allow-Origin","");
+            httpd_resp_set_hdr(req, "Access-Control-Allow-Origin","*");
 
             if(res != ESP_OK){
                 ESP_LOGE(TAG, "Something happened %s", res);
@@ -223,7 +233,7 @@ static void handle_stream(void* args){
             httpd_req_async_handler_complete(req);
         }
         
-        vTaskDelete(NULL);
+        //vTaskDelete(NULL);
     }
 }
 
@@ -235,6 +245,9 @@ esp_err_t start_stream_handler(httpd_req_t* req){
 
     if(res==ESP_OK){
         xTaskCreatePinnedToCore(handle_stream, "handle_stream", 4096, (void*)copy, 3, &xStreamingTaskHandle, 0);
+        xEventGroupSetBits(s_wifi_event_group, STREAM_READY_BIT);
+    }else{
+        xEventGroupClearBits(s_wifi_event_group, STREAM_READY_BIT);
     }
     return res;
 }
@@ -248,14 +261,28 @@ static void startWebServer(){
     };
     httpd_handle_t stream_httpd = NULL;
 
+    ESP_LOGI(TAG, "Starting http server");
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
     config.recv_wait_timeout = 10;
     config.send_wait_timeout = 10;
 
     if(httpd_start(&stream_httpd, &config)==ESP_OK){
+        ESP_LOGI(TAG, "httpd_start returned %s", ESP_OK);
         httpd_register_uri_handler(stream_httpd, &stream_uri);
     }
+}
+
+void handle_webServer(void *args){
+    xEventGroupWaitBits(
+        s_wifi_event_group,
+        WIFI_CONNECTED_BIT,
+        pdFALSE,
+        pdTRUE,
+        portMAX_DELAY
+    );
+    startWebServer();
+    vTaskDelete(NULL);
 }
 
 void app_main(void)
@@ -280,8 +307,16 @@ void app_main(void)
         ESP_LOGE(TAG, "FAILED TO CONNECT TO %s", CONFIG_WIFI_SSID);
     }
 
-    startWebServer();
     
+    xTaskCreatePinnedToCore(
+        handle_webServer,
+        "handle_webServer",
+        4096,
+        NULL,
+        2,
+        &xWebServerHandle,
+        0
+    ); 
     xTaskCreatePinnedToCore(
         handle_capture, //Task Function
         "handle_capture", //Task Name
@@ -293,7 +328,5 @@ void app_main(void)
     );
 
     xFrameQueue = xQueueCreate(FRAME_QUEUE_LEN, sizeof(camera_fb_t *));
-
-    vTaskStartScheduler();
     
 }
