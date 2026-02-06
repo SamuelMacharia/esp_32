@@ -4,9 +4,9 @@
 # Esp32 Camera Streaming and  Face Recognition Using OV3660
 
 This project turns an esp32-cam to a real-time streaming server with the groundwork for face recognition. It uses:
-    FreeRTOS tasks for concurrency
-    ESP-IDF for full control of peripherals
-    Queues and Event Groups for safe inter-task communication
+    -FreeRTOS tasks for concurrency
+    -ESP-IDF for full control of peripherals
+    -Queues and Event Groups for safe inter-task communication
 
 The system captures camera frames, streams them to clients over HTTP, and isn designed to scale to multiple clients without crashing or blocking.
 
