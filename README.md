@@ -62,7 +62,6 @@ The system captures camera frames, streams them to clients over HTTP, and is des
    idf.py build
    idf.py flash
    idf.py monitor  
-
 6. Open a browser and go to:  
   ```bash
   http://<Your_IP>/stream
