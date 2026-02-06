@@ -56,14 +56,12 @@ The system captures camera frames, streams them to clients over HTTP, and is des
 3. Configure WiFi in menuconfig (CONFIG_WIFI_SSID & CONFIG_WIFI_PASSWORD)
 
 4. Build and flash:
-
   ```bash
    $HOME/esp/esp-idf/export.sh
    idf.py build
    idf.py flash
    idf.py monitor
 
-  ---
 5. Open a browser and go to:  
   ```bash
   http://<Your_IP>/stream
