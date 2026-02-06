@@ -15,5 +15,6 @@
     "--background-index",
     "--query-driver=**",
     "--compile-commands-dir=/home/gachie/project-name/build"
-  ]
+  ],
+  "idf.currentSetup": "/home/gachie/esp/esp-idf"
 }

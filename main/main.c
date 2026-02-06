@@ -77,6 +77,12 @@ static esp_err_t init_camera(){
         ESP_LOGE(TAG, "Camera Initialization failed");
         return err;
     }
+
+    //flip the camera to the right orientation
+    sensor_t *s = esp_camera_sensor_get();
+    s->set_vflip(s,1);
+    s->set_hmirror(s,0);
+
     ESP_LOGI(TAG, "Camera Initialization successful");
     return ESP_OK;
 }
@@ -200,6 +206,7 @@ static void handle_capture(void* args){
 }
 
 static void handle_stream(void* args){
+    httpd_req_t* req = (httpd_req_t*)args;
     camera_fb_t* recieved_fb = NULL;
     esp_err_t res = ESP_OK;
 
@@ -207,12 +214,11 @@ static void handle_stream(void* args){
     static const char* _STREAM_BOUNDARY = "\r\n--frame\r\n";
     static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
     
+    res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
+    httpd_resp_set_hdr(req, "Cache-control", "no-cache");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin","*");
     for(;;){
-        if(xQueueReceive(xFrameQueue, &recieved_fb, portMAX_DELAY)==pdTRUE){
-            httpd_req_t* req = (httpd_req_t*)args;
-            res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
-            httpd_resp_set_hdr(req, "Access-Control-Allow-Origin","*");
-
+        if(xQueueReceive(xFrameQueue, &recieved_fb, portMAX_DELAY)==pdTRUE){          
             if(res != ESP_OK){
                 ESP_LOGE(TAG, "Something happened %s", res);
                 break;
@@ -230,11 +236,11 @@ static void handle_stream(void* args){
             }
             esp_camera_fb_return(recieved_fb);
             recieved_fb=NULL;
-            httpd_req_async_handler_complete(req);
         }
-        
-        //vTaskDelete(NULL);
     }
+    httpd_req_async_handler_complete(req);
+    xEventGroupClearBits(s_wifi_event_group, STREAM_READY_BIT);
+    vTaskDelete(NULL);
 }
 
 esp_err_t start_stream_handler(httpd_req_t* req){
@@ -252,25 +258,37 @@ esp_err_t start_stream_handler(httpd_req_t* req){
     return res;
 }
 
-static void startWebServer(){
-    httpd_uri_t stream_uri={
+httpd_uri_t stream_uri={
         .uri ="/stream",
         .method = HTTP_GET,
         .handler= start_stream_handler,
         .user_ctx = NULL
     };
-    httpd_handle_t stream_httpd = NULL;
+static httpd_handle_t server = NULL;
 
+
+static esp_err_t startWebServer(){
     ESP_LOGI(TAG, "Starting http server");
+
+    if(server != NULL){
+        ESP_LOGW(TAG, "Web Server already running");
+        return ESP_OK;
+    }
+    
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
     config.recv_wait_timeout = 10;
     config.send_wait_timeout = 10;
 
-    if(httpd_start(&stream_httpd, &config)==ESP_OK){
-        ESP_LOGI(TAG, "httpd_start returned %s", ESP_OK);
-        httpd_register_uri_handler(stream_httpd, &stream_uri);
+    esp_err_t err = httpd_start(&server, &config);
+    if(err != ESP_OK){
+        ESP_LOGE(TAG, "Failed to start server %s", esp_err_to_name(err));
+        server= NULL;
+        return err;
     }
+    httpd_register_uri_handler(server, &stream_uri);
+    ESP_LOGI(TAG, "Web Server Started Successfully");
+    return ESP_OK;
 }
 
 void handle_webServer(void *args){
@@ -307,6 +325,10 @@ void app_main(void)
         ESP_LOGE(TAG, "FAILED TO CONNECT TO %s", CONFIG_WIFI_SSID);
     }
 
+    //startWebServer();
+
+    xFrameQueue = xQueueCreate(FRAME_QUEUE_LEN, sizeof(camera_fb_t *));
+
     
     xTaskCreatePinnedToCore(
         handle_webServer,
@@ -317,6 +339,8 @@ void app_main(void)
         &xWebServerHandle,
         0
     ); 
+    
+    
     xTaskCreatePinnedToCore(
         handle_capture, //Task Function
         "handle_capture", //Task Name
@@ -327,6 +351,5 @@ void app_main(void)
         1 // core
     );
 
-    xFrameQueue = xQueueCreate(FRAME_QUEUE_LEN, sizeof(camera_fb_t *));
     
 }
