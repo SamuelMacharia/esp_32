@@ -53,7 +53,7 @@ The system captures camera frames, streams them to clients over HTTP, and is des
    git clone https://github.com/SamuelMacharia/esp_32.git
    cd esp_32
 
-3. Configure WiFi in menuconfig (CONFIG_WIFI_SSID & CONFIG_WIFI_PASSWORD)
+3. Configure WiFi in menuconfig (`CONFIG_WIFI_SSID` & `CONFIG_WIFI_PASSWORD`)
 
 4. Build and flash:
   ```bash
@@ -65,6 +65,6 @@ The system captures camera frames, streams them to clients over HTTP, and is des
 
 5. Open a browser and go to:  
   ```bash
-  http://<Your_IP>/stream
+   http://<Your_IP>/stream
 
 
