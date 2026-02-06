@@ -58,11 +58,13 @@ The system captures camera frames, streams them to clients over HTTP, and is des
 4. Build and flash:
 
   ```bash
-    $HOME/esp/esp-idf/export.sh
-    idf.py build
-    idf.py flash
-    idf.py monitor  
+   $HOME/esp/esp-idf/export.sh
+   idf.py build
+   idf.py flash
+   idf.py monitor  
 
-6. Open a browser and go to:
+6. Open a browser and go to:  
+  ```bash
+   http://<Your_IP>/stream
 
-http://<Your_IP>/stream
+
