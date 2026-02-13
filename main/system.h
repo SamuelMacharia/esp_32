@@ -12,16 +12,16 @@
 
 
 
-QueueHandle_t xFrameQueue;
-EventGroupHandle_t s_wifi_event_group;
+extern QueueHandle_t xFrameQueue;
+extern EventGroupHandle_t s_wifi_event_group;
 
 
-TaskHandle_t xCaptureTaskHandle;
-TaskHandle_t xStreamingTaskHandle;
-TaskHandle_t xWebServerHandle;
-TaskHandle_t xMqttTaskHandle;
-TaskHandle_t xPSTaskHandle;
-TaskHandle_t handle_detect_face;
-TaskHandle_t handle_face_recognition;
+extern TaskHandle_t xCaptureTaskHandle;
+extern TaskHandle_t xStreamingTaskHandle;
+extern TaskHandle_t xWebServerHandle;
+extern TaskHandle_t xMqttTaskHandle;
+extern TaskHandle_t xPSTaskHandle;
+extern TaskHandle_t handle_detect_face;
+extern TaskHandle_t handle_face_recognition;
 
 void system_init(void);
