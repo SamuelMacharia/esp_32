@@ -31,7 +31,6 @@ void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id,
 
 esp_err_t init_wifi(void){
     //create an event group
-    s_wifi_event_group = xEventGroupCreate();
 
     //initialize TCP/IP Stack
     ESP_ERROR_CHECK(esp_netif_init());

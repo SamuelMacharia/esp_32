@@ -14,8 +14,7 @@
 #include "esp_wifi.h"
 #include "sdkconfig.h"
 #include "esp_event.h"
-
-EventGroupHandle_t s_wifi_event_group;
+#include "system.h"
 
 
 void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id,

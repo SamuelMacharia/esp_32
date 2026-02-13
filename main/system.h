@@ -7,11 +7,15 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
+#include "event_groups.h"
 #include "esp_camera.h"
+
 
 
 QueueHandle_t xFrameQueue;
 EventGroupHandle_t s_wifi_event_group;
+
+
 TaskHandle_t xCaptureTaskHandle;
 TaskHandle_t xStreamingTaskHandle;
 TaskHandle_t xWebServerHandle;

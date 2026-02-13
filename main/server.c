@@ -1,7 +1,6 @@
 #include "server.h"
-#include <esp_log.h>
 
-static const char* TAG = "WEBSERVER";
+static const char* TAG = "Web Server";
 
 
 httpd_uri_t stream_uri={
@@ -61,7 +60,7 @@ void handle_stream(void* args){
     res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
     httpd_resp_set_hdr(req, "Cache-control", "no-cache");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin","*");
-    for(;;){
+    while(httpd_req_to_sockfd(req)>=0){
         if(xQueueReceive(xFrameQueue, &recieved_fb, portMAX_DELAY)==pdTRUE){          
             if(res != ESP_OK){
                 ESP_LOGE(TAG, "Something happened %s", res);
