@@ -30,6 +30,7 @@ void power_manager_task(void *args){
 }
 
 void power_init(void){
+    ESP_LOGI(TAG, "Power init running");
     esp_sleep_enable_timer_wakeup(60LL * 1000000LL);
 
     xTaskCreatePinnedToCore(
