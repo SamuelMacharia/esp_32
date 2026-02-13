@@ -1,6 +1,7 @@
 #include "server.h"
+#include <esp_log.h>
 
-static const char* TAG = "Server";
+static const char* TAG = "WEBSERVER";
 
 
 httpd_uri_t stream_uri={

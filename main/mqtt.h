@@ -12,5 +12,5 @@
 #include "power.h"
 
 esp_err_t mqtt_start(void);
-esp_err_t mqtt_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id,
+void mqtt_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id,
     void* event_data);

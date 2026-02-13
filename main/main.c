@@ -39,6 +39,22 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
 
+    system_init();
+
+    init_camera();
+    vTaskDelay(pdMS_TO_TICKS(1500));
+
+    power_init();
+
+    esp_err_t wifi_status = init_wifi();
+    if(wifi_status==ESP_OK){
+        ESP_LOGI(TAG, "CONNECTED TO %s", CONFIG_WIFI_SSID);
+    }else{
+        ESP_LOGE(TAG, "FAILED TO CONNECT TO %s", CONFIG_WIFI_SSID);
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    mqtt_start();
     
     xTaskCreatePinnedToCore(
         handle_webServer,
@@ -61,22 +77,8 @@ void app_main(void)
         1 // core
     );
 
-    power_init();
+    
 
-
-
-    esp_err_t wifi_status = init_wifi();
-    if(wifi_status==ESP_OK){
-        ESP_LOGI(TAG, "CONNECTED TO %s", CONFIG_WIFI_SSID);
-    }else{
-        ESP_LOGE(TAG, "FAILED TO CONNECT TO %s", CONFIG_WIFI_SSID);
-    }
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    mqtt_start();
-
-    init_camera();
-    vTaskDelay(pdMS_TO_TICKS(1500));
 
     //startWebServer();
     
